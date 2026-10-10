@@ -1,0 +1,37 @@
+name: Build mod
+on:
+  workflow_dispatch:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.1.1
+      - name: Prepare project
+        run: |
+          echo "Файли в сховищі:"; ls -la
+          if ls *.zip >/dev/null 2>&1; then
+            n=$(ls *.zip | wc -l)
+            if [ "$n" -ne 1 ]; then echo "ПОМИЛКА: потрібен рівно один zip, зараз: $n"; exit 1; fi
+            unzip -q *.zip || { echo "ПОМИЛКА: zip не розпакувався (файл пошкоджений?)"; exit 1; }
+          else
+            echo "zip не знайдено, шукаю проєкт у розпакованому вигляді"
+          fi
+          find . -name build.gradle -not -path "./.git/*"
+      - name: Build
+        run: |
+          f=$(find . -name build.gradle -not -path "./.git/*" | head -1)
+          if [ -z "$f" ]; then echo "ПОМИЛКА: build.gradle не знайдено"; exit 1; fi
+          cd "$(dirname "$f")"
+          gradle build --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar
+          path: "**/build/libs/*.jar"
